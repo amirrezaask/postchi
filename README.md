@@ -7,7 +7,7 @@ Yet another HTTP client that doesn't SUCK.
 ```yaml
 vars:
   baseURL:
-    source: process 
+    source: process
     name: BASE_URL
     value: http://localhost:1323/api/v2/asset
   jwtToken:
@@ -15,7 +15,7 @@ vars:
     name: JWT_TOKEN
     value: ""
   assetID:
-    source: args 
+    source: args
     index: 0
 
 defaults:
@@ -36,4 +36,9 @@ requests:
 ```bash
 postchi -file postchi.yaml -name feeds
 postchi -name feeds #defaults to using postchi.yaml in your current PWD
+```
+I recommend having `jq` installed on your system and use this tool in combination of that and a text editor, so you can analyze output of the api more easily.
+```bash
+postchi -name index someid | jq | code -
+postchi -name index someid | jq | vim
 ```

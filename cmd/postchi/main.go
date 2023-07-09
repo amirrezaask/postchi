@@ -98,12 +98,12 @@ func getConfigReader(configFileName string) (io.Reader, error) {
 func (s *state) formatString(str string) string {
 	t, err := template.New("str").Parse(str)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 	var buff bytes.Buffer
 	err = t.Execute(&buff, s.vars)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	return buff.String()
@@ -117,7 +117,7 @@ func (r *requestConfig) toHttpRequest(state state) *http.Request {
 	}
 	req, err := http.NewRequest(method, route, nil)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 	for key, v := range state.cfg.Defaults.Headers {
 		req.Header.Add(key, state.formatString(v))
@@ -158,12 +158,12 @@ func main() {
 	if req, exists := state.cfg.Requests[requestName]; exists {
 		resp, err := client.Do(req.toHttpRequest(state))
 		if err != nil {
-			panic(err)
+			log.Fatalln(err.Error())
 		}
 		defer resp.Body.Close()
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			panic(err)
+			log.Fatalln(err)
 		}
 		fmt.Fprint(os.Stdout, string(body))
 	}

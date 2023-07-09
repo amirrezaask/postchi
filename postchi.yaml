@@ -1,18 +1,15 @@
-env:
+vars:
   baseURL:
     source: process 
     name: BASE_URL
     value: http://localhost:1323/api/v2/asset
-  randomenv:
-    source: plain
-    value: secret token
   jwtToken:
     source: process
     name: JWT_TOKEN
     value: ""
   assetID:
-    source: cli
-    arg_number: 0
+    source: args 
+    index: 0
 
 defaults:
   headers:
@@ -21,7 +18,7 @@ defaults:
     Accepts: "application/json"
 
 requests:
-  index:
+  asset:
     route: "{{ .baseURL }}/{{ .assetID }}"
   feeds:
     route: "{{ .baseURL }}/{{ .assetID }}/feed"

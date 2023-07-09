@@ -5,7 +5,7 @@ Yet another HTTP client that doesn't SUCK.
 
 ## Sample config file
 ```yaml
-env:
+vars:
   baseURL:
     source: process 
     name: BASE_URL

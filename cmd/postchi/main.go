@@ -18,15 +18,15 @@ type envSource string
 
 const (
 	envSource_Plain   = "plain"
-	envSource_Cli     = "cli"
+	envSource_Args    = "args"
 	envSource_Process = "process"
 )
 
-type envConfig struct {
-	Source    envSource `json:"source" yaml:"source"`
-	Name      string    `json:"name" yaml:"name"`
-	ArgNumber int       `json:"arg_number" yaml:"arg_number"`
-	Value     string    `json:"value" yaml:"value"`
+type varConfig struct {
+	Source envSource `json:"source" yaml:"source"`
+	Name   string    `json:"name" yaml:"name"`
+	Index  int       `json:"index" yaml:"index"`
+	Value  string    `json:"value" yaml:"value"`
 }
 type requestConfig struct {
 	Method  string
@@ -36,40 +36,40 @@ type requestConfig struct {
 }
 
 type config struct {
-	Env      map[string]envConfig     `json:"env" yaml:"env"`
+	Vars     map[string]varConfig     `json:"vars" yaml:"vars"`
 	Defaults requestConfig            `json:"defaults" yaml:"defaults"`
 	Requests map[string]requestConfig `json:"requests" yaml:"requests"`
 }
 
 type state struct {
-	env map[string]string
-	cfg config
+	vars map[string]string
+	cfg  config
 }
 
 func newState(args []string, cfg config) state {
-	env := map[string]string{}
-	for k, v := range cfg.Env {
+	vars := map[string]string{}
+	for k, v := range cfg.Vars {
 		switch v.Source {
 		case envSource_Process:
 			envValue := os.Getenv(v.Name)
 			if envValue == "" {
 				envValue = v.Value
 			}
-			env[k] = envValue
-		case envSource_Cli:
-			if len(args) > v.ArgNumber && args[v.ArgNumber] != "" {
-				env[k] = args[v.ArgNumber]
+			vars[k] = envValue
+		case envSource_Args:
+			if len(args) > v.Index && args[v.Index] != "" {
+				vars[k] = args[v.Index]
 			} else {
-				env[k] = v.Value
+				vars[k] = v.Value
 			}
 		case envSource_Plain:
-			env[k] = v.Value
+			vars[k] = v.Value
 		}
 	}
 
 	return state{
-		env: env,
-		cfg: cfg,
+		vars: vars,
+		cfg:  cfg,
 	}
 }
 
@@ -101,7 +101,7 @@ func (s *state) formatString(str string) string {
 		panic(err)
 	}
 	var buff bytes.Buffer
-	err = t.Execute(&buff, s.env)
+	err = t.Execute(&buff, s.vars)
 	if err != nil {
 		panic(err)
 	}

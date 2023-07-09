@@ -2,14 +2,14 @@ env:
   baseURL:
     source: process 
     name: BASE_URL
-    value: https://postman-echo.com/get
+    value: http://localhost:1323/api/v2/asset/167
   randomenv:
     source: plain
     value: secret token
   jwtToken:
     source: process
     name: JWT_TOKEN
-    value: secret
+    value: ""
   assetID:
     source: cli
     arg_number: 1
@@ -22,8 +22,7 @@ defaults:
 
 requests:
   index:
-      route: "{{ .baseURL }}"
-      headers:
-      Authorization: "Bearer {{ jwtToken }}"
-      Content-Type: "application/json"
-
+    route: "{{ .baseURL }}"
+  feeds:
+    route: "{{ .baseURL }}/feed"
+      

@@ -11,7 +11,6 @@ import (
 	"os"
 	"text/template"
 
-	"github.com/davecgh/go-spew/spew"
 	"gopkg.in/yaml.v3"
 )
 
@@ -38,7 +37,7 @@ type requestConfig struct {
 
 type config struct {
 	Env      map[string]envConfig     `json:"env" yaml:"env"`
-	Defaults map[string]any           `json:"defaults" yaml:"defaults"`
+	Defaults requestConfig            `json:"defaults" yaml:"defaults"`
 	Requests map[string]requestConfig `json:"requests" yaml:"requests"`
 }
 
@@ -87,6 +86,11 @@ func getConfigReader(configFileName string) (io.Reader, error) {
 		return os.Open(configFileName)
 	}
 
+	configFileName = DEFAULT_CONFIG_FILE_NAME + ".yml"
+	_, err = os.Stat(configFileName)
+	if err == nil {
+		return os.Open(configFileName)
+	}
 	return nil, errors.New("could not find any config file")
 
 }
@@ -115,9 +119,12 @@ func (r *requestConfig) toHttpRequest(state state) *http.Request {
 	if err != nil {
 		panic(err)
 	}
+	for key, v := range state.cfg.Defaults.Headers {
+		req.Header.Add(key, state.formatString(v))
+	}
 
 	for key, v := range r.Headers {
-		req.Header.Add(key, v)
+		req.Header.Add(key, state.formatString(v))
 	}
 
 	return req
@@ -130,6 +137,9 @@ func main() {
 	flag.StringVar(&requestsFile, "file", "", "request file, defaults to postchi.yaml")
 	flag.Parse()
 
+	if requestName == "" {
+		log.Fatalln("you need to specify request name")
+	}
 	args := flag.Args()
 
 	configReader, err := getConfigReader(requestsFile)
@@ -144,8 +154,6 @@ func main() {
 
 	state := newState(args, cfg)
 
-	spew.Dump(state.env)
-
 	var client http.Client
 	if req, exists := state.cfg.Requests[requestName]; exists {
 		resp, err := client.Do(req.toHttpRequest(state))
@@ -157,6 +165,6 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(string(body))
+		fmt.Fprint(os.Stdout, string(body))
 	}
 }

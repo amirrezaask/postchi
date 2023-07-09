@@ -9,7 +9,7 @@ env:
   baseURL:
     source: process 
     name: BASE_URL
-    value: http://localhost:1323/api/v2/asset/167
+    value: http://localhost:1323/api/v2/asset
   randomenv:
     source: plain
     value: secret token
@@ -19,7 +19,7 @@ env:
     value: ""
   assetID:
     source: cli
-    arg_number: 1
+    arg_number: 0
 
 defaults:
   headers:
@@ -29,9 +29,10 @@ defaults:
 
 requests:
   index:
-    route: "{{ .baseURL }}"
+    route: "{{ .baseURL }}/{{ .assetID }}"
   feeds:
-    route: "{{ .baseURL }}/feed"
+    route: "{{ .baseURL }}/{{ .assetID }}/feed"
+ 
 ```
 
 ## Usage

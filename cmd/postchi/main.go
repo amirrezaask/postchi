@@ -119,7 +119,11 @@ func (r *requestConfig) toHttpRequest(state state) *http.Request {
 	if r.Method != "" {
 		method = r.Method
 	}
-	req, err := http.NewRequest(method, route, nil)
+	var body io.Reader
+	if r.Body != "" {
+		body = strings.NewReader(r.Body)
+	}
+	req, err := http.NewRequest(method, route, body)
 	if err != nil {
 		log.Fatalln(err)
 	}

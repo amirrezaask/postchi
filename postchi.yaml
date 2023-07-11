@@ -2,7 +2,7 @@ vars:
   baseURL:
     source: process 
     name: BASE_URL
-    value: http://localhost:1323/api/v2/asset
+    value: https://postman-echo.com
   jwtToken:
     source: process
     name: JWT_TOKEN
@@ -18,8 +18,8 @@ defaults:
     Accepts: "application/json"
 
 requests:
-  asset:
-    route: "{{ .baseURL }}/{{ .assetID }}"
-  feeds:
-    route: "{{ .baseURL }}/{{ .assetID }}/feed"
+  postman-echo:
+    route: "{{ .baseURL }}/get"
+    body: >
+      { "name": "amirreza" }
       

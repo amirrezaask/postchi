@@ -6,11 +6,14 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"text/template"
 
+	"github.com/amirrezaask/postchi/pkg/httpparser"
 	"gopkg.in/yaml.v3"
 )
 
@@ -130,12 +133,72 @@ func (r *requestConfig) toHttpRequest(state state) *http.Request {
 	return req
 }
 
+func interactive() (*http.Response, error) {
+	readFromEditor := func(editor string) (string, error) {
+		if editor == "" {
+			editor = os.Getenv("EDITOR")
+		}
+
+		fd, err := os.CreateTemp("", "postchi-req")
+		if err != nil {
+			return "", err
+		}
+		defer os.Remove(fd.Name())
+
+		cmd := exec.Command("sh", "-c", editor+" "+fd.Name())
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			return "", err
+		}
+		b, err := ioutil.ReadFile(fd.Name())
+		if err != nil {
+			return "", err
+		}
+
+		return string(b), nil
+	}
+	reqText, err := readFromEditor("")
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := httpparser.Parse(reqText)
+	if err != nil {
+		return nil, err
+	}
+
+	// spew.Dump(req)
+
+	client := http.Client{}
+	return client.Do(req)
+}
+
 func main() {
 	var requestName string
 	var requestsFile string
+	var interactiveMode bool
 	flag.StringVar(&requestName, "name", "", "request you want to send")
 	flag.StringVar(&requestsFile, "file", "", "request file, defaults to postchi.yaml")
+	flag.BoolVar(&interactiveMode, "interactive", false, "interactive mode will open your EDITOR and you write your request in HTTP format")
 	flag.Parse()
+
+	if interactiveMode {
+		resp, err := interactive()
+		if err != nil {
+			log.Fatalln(err)
+		}
+		body, err := io.ReadAll(resp.Body)
+		defer resp.Body.Close()
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		fmt.Println(string(body))
+		return
+	}
 
 	if requestName == "" {
 		log.Fatalln("you need to specify request name")

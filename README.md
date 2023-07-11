@@ -42,3 +42,7 @@ I recommend having `jq` installed on your system and use this tool in combinatio
 postchi -name index someid | jq | code -
 postchi -name index someid | jq | vim
 ```
+### Interactive mode
+```bash
+postchi -interactive # will open up your $EDITOR and you write your request in HTTP format
+```

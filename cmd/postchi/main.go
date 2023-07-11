@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"flag"
@@ -11,9 +12,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"text/template"
 
-	"github.com/amirrezaask/postchi/pkg/httpparser"
 	"gopkg.in/yaml.v3"
 )
 
@@ -165,12 +166,14 @@ func interactive() (*http.Response, error) {
 		return nil, err
 	}
 
-	req, err := httpparser.Parse(reqText)
+	req, err := http.ReadRequest(bufio.NewReader(strings.NewReader(reqText)))
 	if err != nil {
 		return nil, err
 	}
 
-	// spew.Dump(req)
+	if req.RequestURI != "" {
+		req.RequestURI = ""
+	}
 
 	client := http.Client{}
 	return client.Do(req)
@@ -185,7 +188,7 @@ func main() {
 	flag.BoolVar(&interactiveMode, "interactive", false, "interactive mode will open your EDITOR and you write your request in HTTP format")
 	flag.Parse()
 
-	if interactiveMode {
+	if requestName == "" || interactiveMode {
 		resp, err := interactive()
 		if err != nil {
 			log.Fatalln(err)

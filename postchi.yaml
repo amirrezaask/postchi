@@ -7,6 +7,10 @@ vars:
     source: process
     name: JWT_TOKEN
     value: "secret token"
+  name:
+    source: args
+    index: 0
+    value: "amirreza"
 
 defaults:
   headers:
@@ -18,5 +22,5 @@ requests:
   postman-echo:
     route: "{{ .baseURL }}/get"
     body: >
-      { "name": "amirreza" }
+      { "name": "{{ .name }}" }
       

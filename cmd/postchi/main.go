@@ -170,6 +170,17 @@ func verboseFormatRequest(req *http.Request) string {
 	return base
 }
 
+func verboseFormatResponse(resp *http.Response) string {
+	base := resp.Status + "\n"
+	for k, v := range resp.Header {
+		base += fmt.Sprintf("\n%s: %s", k, v)
+	}
+
+	base += "\n"
+	return base
+
+}
+
 func interactive() (*http.Response, error) {
 	readFromEditor := func(editor string) (string, error) {
 		if editor == "" {
@@ -221,12 +232,16 @@ func main() {
 	var interactiveMode bool
 	var openEditorWithRespone bool
 	var verbose bool
-	flag.StringVar(&requestName, "n", "", "name of the request you want to send")
 	flag.StringVar(&requestsFile, "f", "", "request file, defaults to postchi.yaml")
 	flag.BoolVar(&interactiveMode, "i", false, "interactive mode will open your EDITOR and you write your request in HTTP format")
 	flag.BoolVar(&openEditorWithRespone, "e", true, "open your $EDITOR with the output")
 	flag.BoolVar(&verbose, "v", false, "verbose")
 	flag.Parse()
+	args := flag.Args()
+
+	if len(args) > 0 {
+		requestName = args[0]
+	}
 
 	if requestName == "" || interactiveMode {
 		resp, err := interactive()
@@ -246,7 +261,6 @@ func main() {
 	if requestName == "" {
 		log.Fatalln("you need to specify request name")
 	}
-	args := flag.Args()
 
 	configReader, err := getConfigReader(requestsFile)
 	if err != nil {
@@ -258,7 +272,7 @@ func main() {
 		log.Fatalln(err.Error())
 	}
 
-	state := newState(args, cfg)
+	state := newState(args[1:], cfg)
 
 	var client http.Client
 	if req, exists := state.cfg.Requests[requestName]; exists {
@@ -278,6 +292,10 @@ func main() {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			log.Fatalln(err)
+		}
+		if verbose {
+			fmt.Println(verboseFormatResponse(resp))
+			fmt.Println("++++++++++++++++++++++++++")
 		}
 		fmt.Fprint(os.Stdout, string(body))
 	}

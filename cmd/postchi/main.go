@@ -33,10 +33,11 @@ type varConfig struct {
 	Value  string    `json:"value" yaml:"value"`
 }
 type requestConfig struct {
-	Method  string
+	Method  string            `yaml:"method" json:"method"`
 	Route   string            `json:"route" yaml:"route"`
 	Headers map[string]string `json:"headers" yaml:"headers"`
 	Body    string            `json:"body" yaml:"body"`
+	Query   map[string]string `json:"query" yaml:"query"`
 }
 
 type config struct {
@@ -121,6 +122,7 @@ func (r *requestConfig) toHttpRequest(state state) *http.Request {
 	}
 	var body io.Reader
 	if r.Body != "" {
+		r.Body = state.formatString(r.Body)
 		body = strings.NewReader(r.Body)
 	}
 	req, err := http.NewRequest(method, route, body)
@@ -135,7 +137,37 @@ func (r *requestConfig) toHttpRequest(state state) *http.Request {
 		req.Header.Add(key, state.formatString(v))
 	}
 
+	queries := map[string]string{}
+
+	for key, v := range state.cfg.Defaults.Query {
+		queries[key] = state.formatString(v)
+	}
+
+	for key, v := range r.Query {
+		queries[key] = state.formatString(v)
+	}
+
+	var queriesString []string
+	for key, v := range queries {
+		queriesString = append(queriesString, fmt.Sprintf("%s=%s", key, state.formatString(v)))
+	}
+
+	if queriesString != nil {
+		req.URL.RawQuery = strings.Join(queriesString, "&")
+	}
+
 	return req
+}
+
+func verboseFormatRequest(req *http.Request) string {
+	base := fmt.Sprintf("%s %s", req.Method, req.URL.String())
+	for k, v := range req.Header {
+		base += fmt.Sprintf("\n%s: %s", k, v)
+	}
+
+	base += "\n"
+
+	return base
 }
 
 func interactive() (*http.Response, error) {
@@ -187,9 +219,13 @@ func main() {
 	var requestName string
 	var requestsFile string
 	var interactiveMode bool
-	flag.StringVar(&requestName, "name", "", "request you want to send")
-	flag.StringVar(&requestsFile, "file", "", "request file, defaults to postchi.yaml")
-	flag.BoolVar(&interactiveMode, "interactive", false, "interactive mode will open your EDITOR and you write your request in HTTP format")
+	var openEditorWithRespone bool
+	var verbose bool
+	flag.StringVar(&requestName, "n", "", "name of the request you want to send")
+	flag.StringVar(&requestsFile, "f", "", "request file, defaults to postchi.yaml")
+	flag.BoolVar(&interactiveMode, "i", false, "interactive mode will open your EDITOR and you write your request in HTTP format")
+	flag.BoolVar(&openEditorWithRespone, "e", true, "open your $EDITOR with the output")
+	flag.BoolVar(&verbose, "v", false, "verbose")
 	flag.Parse()
 
 	if requestName == "" || interactiveMode {
@@ -226,9 +262,17 @@ func main() {
 
 	var client http.Client
 	if req, exists := state.cfg.Requests[requestName]; exists {
-		resp, err := client.Do(req.toHttpRequest(state))
+		hReq := req.toHttpRequest(state)
+		if verbose {
+			fmt.Println(verboseFormatRequest(hReq))
+			fmt.Println("----------------------------")
+		}
+		resp, err := client.Do(hReq)
 		if err != nil {
 			log.Fatalln(err.Error())
+		}
+		if resp.StatusCode > 299 || resp.StatusCode < 200 {
+			log.Println("Status Code: ", resp.StatusCode)
 		}
 		defer resp.Body.Close()
 		body, err := io.ReadAll(resp.Body)

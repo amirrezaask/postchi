@@ -6,10 +6,7 @@ vars:
   jwtToken:
     source: process
     name: JWT_TOKEN
-    value: ""
-  assetID:
-    source: args 
-    index: 0
+    value: "secret token"
 
 defaults:
   headers:

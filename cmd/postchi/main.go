@@ -26,13 +26,13 @@ const (
 	envSource_Process = "process"
 )
 
-type varConfig struct {
+type Var struct {
 	Source envSource `json:"source" yaml:"source"`
 	Name   string    `json:"name" yaml:"name"`
 	Index  int       `json:"index" yaml:"index"`
 	Value  string    `json:"value" yaml:"value"`
 }
-type requestConfig struct {
+type request struct {
 	Method  string            `yaml:"method" json:"method"`
 	Route   string            `json:"route" yaml:"route"`
 	Headers map[string]string `json:"headers" yaml:"headers"`
@@ -40,42 +40,39 @@ type requestConfig struct {
 	Query   map[string]string `json:"query" yaml:"query"`
 }
 
-type config struct {
-	Vars     map[string]varConfig     `json:"vars" yaml:"vars"`
-	Defaults requestConfig            `json:"defaults" yaml:"defaults"`
-	Requests map[string]requestConfig `json:"requests" yaml:"requests"`
+type Context struct {
+	ProcessedVars map[string]string
+	RawVars       map[string]Var     `json:"vars" yaml:"vars"`
+	Defaults      request            `json:"defaults" yaml:"defaults"`
+	Requests      map[string]request `json:"requests" yaml:"requests"`
 }
 
-type state struct {
-	vars map[string]string
-	cfg  config
-}
-
-func newState(args []string, cfg config) state {
-	vars := map[string]string{}
-	for k, v := range cfg.Vars {
+func newContext(args []string, decoderFunc func(v any) error) (Context, error) {
+	c := Context{ProcessedVars: map[string]string{}}
+	err := decoderFunc(&c)
+	if err != nil {
+		return Context{}, fmt.Errorf("cannot decode using decoderFunc: %w", err)
+	}
+	for k, v := range c.RawVars {
 		switch v.Source {
 		case envSource_Process:
 			envValue := os.Getenv(v.Name)
 			if envValue == "" {
 				envValue = v.Value
 			}
-			vars[k] = envValue
+			c.ProcessedVars[k] = envValue
 		case envSource_Args:
 			if len(args) > v.Index && args[v.Index] != "" {
-				vars[k] = args[v.Index]
+				c.ProcessedVars[k] = args[v.Index]
 			} else {
-				vars[k] = v.Value
+				c.ProcessedVars[k] = v.Value
 			}
 		case envSource_Plain:
-			vars[k] = v.Value
+			c.ProcessedVars[k] = v.Value
 		}
 	}
 
-	return state{
-		vars: vars,
-		cfg:  cfg,
-	}
+	return c, nil
 }
 
 const DEFAULT_CONFIG_FILE_NAME = "postchi"
@@ -100,13 +97,13 @@ func getConfigReader(configFileName string) (io.Reader, error) {
 
 }
 
-func (s *state) formatString(str string) string {
+func (s *Context) formatString(str string) string {
 	t, err := template.New("str").Parse(str)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	var buff bytes.Buffer
-	err = t.Execute(&buff, s.vars)
+	err = t.Execute(&buff, s.ProcessedVars)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -114,7 +111,7 @@ func (s *state) formatString(str string) string {
 	return buff.String()
 }
 
-func (r *requestConfig) toHttpRequest(state state) *http.Request {
+func (r *request) toHttpRequest(state Context) *http.Request {
 	route := state.formatString(r.Route)
 	method := http.MethodGet
 	if r.Method != "" {
@@ -129,7 +126,7 @@ func (r *requestConfig) toHttpRequest(state state) *http.Request {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	for key, v := range state.cfg.Defaults.Headers {
+	for key, v := range state.Defaults.Headers {
 		req.Header.Add(key, state.formatString(v))
 	}
 
@@ -139,7 +136,7 @@ func (r *requestConfig) toHttpRequest(state state) *http.Request {
 
 	queries := map[string]string{}
 
-	for key, v := range state.cfg.Defaults.Query {
+	for key, v := range state.Defaults.Query {
 		queries[key] = state.formatString(v)
 	}
 
@@ -266,17 +263,11 @@ func main() {
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
-	var cfg config
-	err = yaml.NewDecoder(configReader).Decode(&cfg)
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
-
-	state := newState(args[1:], cfg)
+	ctx, err := newContext(args[1:], yaml.NewDecoder(configReader).Decode)
 
 	var client http.Client
-	if req, exists := state.cfg.Requests[requestName]; exists {
-		hReq := req.toHttpRequest(state)
+	if req, exists := ctx.Requests[requestName]; exists {
+		hReq := req.toHttpRequest(ctx)
 		if verbose {
 			fmt.Println(verboseFormatRequest(hReq))
 			fmt.Println("----------------------------")

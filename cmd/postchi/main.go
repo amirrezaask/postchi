@@ -240,54 +240,49 @@ func main() {
 		requestName = args[0]
 	}
 
+	var resp *http.Response
+	var err error
+
 	if requestName == "" || interactiveMode {
-		resp, err := interactive()
+		resp, err = interactive()
 		if err != nil {
 			log.Fatalln(err)
 		}
-		body, err := io.ReadAll(resp.Body)
-		defer resp.Body.Close()
-		if err != nil {
-			log.Fatalln(err)
-		}
-
-		fmt.Println(string(body))
-		return
-	}
-
-	if requestName == "" {
-		log.Fatalln("you need to specify request name")
-	}
-
-	configReader, err := getConfigReader(requestsFile)
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
-	ctx, err := newContext(args[1:], yaml.NewDecoder(configReader).Decode)
-
-	var client http.Client
-	if req, exists := ctx.Requests[requestName]; exists {
-		hReq := req.toHttpRequest(ctx)
-		if verbose {
-			fmt.Println(verboseFormatRequest(hReq))
-			fmt.Println("----------------------------")
-		}
-		resp, err := client.Do(hReq)
+	} else {
+		configReader, err := getConfigReader(requestsFile)
 		if err != nil {
 			log.Fatalln(err.Error())
 		}
-		if resp.StatusCode > 299 || resp.StatusCode < 200 {
-			log.Println("Status Code: ", resp.StatusCode)
+		ctx, err := newContext(args[1:], yaml.NewDecoder(configReader).Decode)
+
+		var client http.Client
+		req, exists := ctx.Requests[requestName]
+		if !exists {
+			log.Fatalf("no such request %s", requestName)
 		}
-		defer resp.Body.Close()
-		body, err := io.ReadAll(resp.Body)
+		hReq := req.toHttpRequest(ctx)
+		resp, err = client.Do(hReq)
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatalln(err.Error())
 		}
 		if verbose {
-			fmt.Println(verboseFormatResponse(resp))
-			fmt.Println("++++++++++++++++++++++++++")
+			fmt.Println(verboseFormatRequest(req.toHttpRequest(ctx)))
+			fmt.Println("----------------------------")
 		}
-		fmt.Fprint(os.Stdout, string(body))
+
 	}
+	if resp.StatusCode > 299 || resp.StatusCode < 200 {
+		log.Println("Status Code: ", resp.StatusCode)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if verbose {
+		fmt.Println(verboseFormatResponse(resp))
+		fmt.Println("++++++++++++++++++++++++++")
+	}
+	fmt.Fprint(os.Stdout, string(body))
+
 }
